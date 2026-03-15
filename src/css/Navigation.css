@@ -1,0 +1,34 @@
+.nav-cont {
+    color: white;
+    background-color: #1E293B;
+    margin-bottom: 20px;
+}
+
+.logo-cont {
+    display: flex;
+    text-decoration: none;
+    align-items: center;
+}
+
+.logo-div {
+    /* padding: 20px; */
+    text-decoration: none;
+}
+
+.main-logo-text {
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.mini-logo-text {
+    text-decoration: none;
+    color: #92A1B6;
+    font-size: 12px;
+}
+
+.Link {
+    margin: 10px 20px 10px 20px;
+    text-decoration: none;
+    color: #92A1B6;
+    /* background-color: yellow; */
+}

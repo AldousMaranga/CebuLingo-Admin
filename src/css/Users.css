@@ -1,0 +1,41 @@
+.user-cont {
+    background-color: #0F172A;
+}
+
+.user-header {
+    font-size: 20px;
+    font-weight: bold;
+    padding: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+}
+
+.user-buttons-cont {
+    display: flex;
+    gap: 10px;
+}
+
+.user-export-button {
+    padding: 10px;
+    border: 1px #1E293B;
+    border-radius: 10px;
+    background-color: #1E293B;
+    color: #92A1B6;;
+
+}
+
+.user-add-button {
+    padding: 10px;
+    border-radius: 10px;
+}
+
+.user-list-cont {
+    padding: 100px;
+    margin: 0 30px 0 30px;
+    border: 5px white;
+    border-radius: 20px;
+    box-shadow: 0cap;
+    background-color: #1E293B;
+}
