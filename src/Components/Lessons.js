@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { db } from "../firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, orderBy } from "firebase/firestore";
+import { useEffect } from "react";
+import { serverTimestamp } from "firebase/firestore";
 
 function Lessons() {
     const [showModal, setShowModal] = useState(false);
     const [lessonTitle, setLessonTitle] = useState("");
+    const [lessons, setLessons] = useState([]);
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -12,8 +16,10 @@ function Lessons() {
         try {
             await addDoc(collection(db, "lessons"), {
                 title: lessonTitle,
-                createdAt: new Date()
+                createdAt: serverTimestamp()
             });
+
+            fetchLessons();
 
             alert("Lesson added successfully!");
 
@@ -24,6 +30,34 @@ function Lessons() {
             console.error("Error adding lesson:", error);
         }
     };
+
+
+    const fetchLessons = async () => {
+        try {
+            const q = query(
+                collection(db, "lessons"),
+                orderBy("createdAt", "desc")
+            );
+
+            const querySnapshot = await getDocs(q);
+
+            const lessonsData = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            setLessons(lessonsData);
+
+        } catch (error) {
+            console.error("Error fetching lessons:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchLessons();
+    }, []);
+
+
 
     return (
         <div className="lessons-cont">
@@ -39,7 +73,17 @@ function Lessons() {
             </div>
 
             <div className="lesson-list-cont">
-                Full lesson management interface...
+
+                {lessons.length === 0 ? (
+                    <p>No lessons found.</p>
+                ) : (
+                    lessons.map((lesson) => (
+                        <div key={lesson.id} className="lesson-item">
+                            {lesson.title}
+                        </div>
+                    ))
+                )}
+
             </div>
 
             {/* MODAL */}
