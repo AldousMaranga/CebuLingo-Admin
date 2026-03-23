@@ -12,7 +12,7 @@ function Navigation() {
                     {/* <Link to='/home'> */}
                     <div className="logo-cont" >
                         <div className="logo-div">
-                            <img src='images/logo.png' width="auto" height="80px" />
+                            <img src='images/logo.png' width="auto" height="80px"  alt="logo"/>
                         </div>
                         <div className="logo-div">
                             <div className="main-logo-text">CebuLingo Admin</div>

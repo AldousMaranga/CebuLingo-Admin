@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { db } from "../firebase";
 import { collection, addDoc, getDocs, query, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { useEffect } from "react";
-import { serverTimestamp } from "firebase/firestore";
+// import { serverTimestamp } from "firebase/firestore";
 
 function Lessons() {
     const [showModal, setShowModal] = useState(false);
