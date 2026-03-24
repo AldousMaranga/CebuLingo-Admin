@@ -8,9 +8,9 @@ function Lessons() {
     const [lessonTitle, setLessonTitle] = useState("");
     const [lessons, setLessons] = useState([]);
     const [editingId, setEditingId] = useState(null);
-
     const [difficulty, setDifficulty] = useState("easy");
     const [csvFile, setCsvFile] = useState(null);
+    const [fileError, setFileError] = useState("");
 
     const parseCSVFile = async (file) => {
         const text = await file.text();
@@ -50,6 +50,26 @@ function Lessons() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (!lessonTitle.trim()) {
+            alert("Lesson title is required");
+            return;
+        }
+
+        if (!difficulty) {
+            alert("Please select difficulty");
+            return;
+        }
+
+        if (!editingId && !csvFile) {
+            alert("Please upload a CSV file");
+            return;
+        }
+
+        if (fileError) {
+            alert("Please upload a valid CSV file.");
+            return;
+        }
+
         try {
             if (editingId) {
                 await updateDoc(doc(db, "lessons", editingId), {
@@ -58,7 +78,9 @@ function Lessons() {
                 });
 
                 alert("Lesson updated successfully!");
+
             } else {
+
                 const lessonRef = await addDoc(collection(db, "lessons"), {
                     title: lessonTitle,
                     difficulty: difficulty,
@@ -68,41 +90,30 @@ function Lessons() {
                 const lessonId = lessonRef.id;
 
                 if (csvFile) {
-                    try {
-                        const parsedRows = await parseCSVFile(csvFile);
 
-                        await saveQuestionsToLesson(
-                            lessonId,
-                            parsedRows,
-                            difficulty
-                        );
+                    const parsedRows = await parseCSVFile(csvFile);
 
-                        alert("Lesson and questions added successfully!");
-                        fetchLessons();
-                        setLessonTitle("");
-                        setDifficulty("easy");
-                        setCsvFile(null);
-                        setEditingId(null);
-                        setShowModal(false);
-                    } catch (error) {
-                        console.error("Error processing CSV:", error);
-                        alert(error.message || "Failed to process CSV file.");
-                    }
+                    await saveQuestionsToLesson(
+                        lessonId,
+                        parsedRows,
+                        difficulty
+                    );
 
-                    return;
+                    alert("Lesson and questions added successfully!");
                 }
-
-                alert("Lesson added successfully!");
             }
 
             fetchLessons();
+
             setLessonTitle("");
-            setDifficulty("easy");
+            setDifficulty("");
             setCsvFile(null);
             setEditingId(null);
             setShowModal(false);
+
         } catch (error) {
             console.error("Error saving lesson:", error);
+            alert("Something went wrong.");
         }
     };
 
@@ -247,7 +258,7 @@ function Lessons() {
                             </div>
                         ))
                     )}
-                </div>       
+                </div>
             </div>
 
             {showModal && (
@@ -274,15 +285,42 @@ function Lessons() {
                                 <option value="hard">Hard</option>
                             </select>
 
-                            <input
-                                type="file"
-                                accept=".csv"
-                                onChange={(e) => setCsvFile(e.target.files[0])}
-                                required={!editingId}
-                            />
+                            <label className="csv-upload-button">
+                                Upload CSV
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={(e) => {
+                                        const file = e.target.files[0];
 
+                                        if (!file) return;
+
+                                        if (!file.name.toLowerCase().endsWith(".csv")) {
+                                            setFileError("Only CSV files are allowed.");
+                                            setCsvFile(null);
+                                            return;
+                                        }
+
+                                        setFileError("");
+                                        setCsvFile(file);
+                                    }}
+                                    hidden
+                                />
+                            </label>
+
+                            {csvFile && (
+                                <div className="csv-file-name">
+                                    Selected: {csvFile.name}
+                                </div>
+                            )}
+
+                            {fileError && (
+                                <div className="csv-error">
+                                    {fileError}
+                                </div>
+                            )}
                             <div className="modal-buttons">
-                                <button type="submit">Save</button>
+                                <button type="submit" disabled={!lessonTitle || !difficulty || (!editingId && !csvFile)}>Save</button>
                                 <button
                                     type="button"
                                     onClick={() => {

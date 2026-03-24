@@ -254,3 +254,34 @@
 .icon-button.delete:hover {
     background: rgba(255, 89, 89, 0.15);
 }
+
+.csv-upload-button {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 12px;
+    background: #1E293B;
+    color: white;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+    font-size: 14px;
+}
+
+.csv-upload-button:hover {
+    background: #334155;
+}
+
+.csv-file-name {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #94A3B8;
+}
+
+.csv-error {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #EF4444;
+    font-weight: 500;
+}
