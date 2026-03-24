@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { collection, addDoc, getDocs, query, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
-import { useEffect } from "react";
-// import { serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 
 function Lessons() {
     const [showModal, setShowModal] = useState(false);
@@ -10,62 +9,124 @@ function Lessons() {
     const [lessons, setLessons] = useState([]);
     const [editingId, setEditingId] = useState(null);
 
-    // Adding Lessons
-    // const handleSubmit = async (e) => {
-    //     e.preventDefault();
+    const [difficulty, setDifficulty] = useState("easy");
+    const [csvFile, setCsvFile] = useState(null);
 
-    //     try {
-    //         await addDoc(collection(db, "lessons"), {
-    //             title: lessonTitle,
-    //             createdAt: serverTimestamp()
-    //         });
+    const parseCSVFile = async (file) => {
+        const text = await file.text();
 
-    //         fetchLessons();
+        const lines = text
+            .split("\n")
+            .map((line) => line.trim())
+            .filter((line) => line !== "");
 
-    //         alert("Lesson added successfully!");
+        if (lines.length < 2) {
+            throw new Error("CSV file is empty or missing data.");
+        }
 
-    //         setLessonTitle("");
-    //         setShowModal(false);
+        const headers = lines[0].split(",").map((header) => header.trim().toLowerCase());
 
-    //     } catch (error) {
-    //         console.error("Error adding lesson:", error);
-    //     }
-    // };
+        const questionIndex = headers.indexOf("question");
+        const answerIndex = headers.indexOf("answer");
+        const choicesIndex = headers.indexOf("choices");
+
+        if (questionIndex === -1 || answerIndex === -1) {
+            throw new Error("CSV must contain 'question' and 'answer' columns.");
+        }
+
+        const rows = lines.slice(1).map((line) => {
+            const cols = line.split(",").map((col) => col.trim());
+
+            return {
+                question: cols[questionIndex] || "",
+                answer: cols[answerIndex] || "",
+                choices: choicesIndex !== -1 ? cols[choicesIndex] || "" : ""
+            };
+        });
+
+        return rows;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         try {
             if (editingId) {
-                // UPDATE EXISTING
                 await updateDoc(doc(db, "lessons", editingId), {
-                    title: lessonTitle
+                    title: lessonTitle,
+                    difficulty: difficulty
                 });
 
                 alert("Lesson updated successfully!");
-
             } else {
-                // CREATE NEW
-                await addDoc(collection(db, "lessons"), {
+                const lessonRef = await addDoc(collection(db, "lessons"), {
                     title: lessonTitle,
-                    createdAt: new Date()
+                    difficulty: difficulty,
+                    createdAt: serverTimestamp()
                 });
+
+                const lessonId = lessonRef.id;
+
+                if (csvFile) {
+                    try {
+                        const parsedRows = await parseCSVFile(csvFile);
+
+                        await saveQuestionsToLesson(
+                            lessonId,
+                            parsedRows,
+                            difficulty
+                        );
+
+                        alert("Lesson and questions added successfully!");
+                        fetchLessons();
+                        setLessonTitle("");
+                        setDifficulty("easy");
+                        setCsvFile(null);
+                        setEditingId(null);
+                        setShowModal(false);
+                    } catch (error) {
+                        console.error("Error processing CSV:", error);
+                        alert(error.message || "Failed to process CSV file.");
+                    }
+
+                    return;
+                }
 
                 alert("Lesson added successfully!");
             }
 
             fetchLessons();
-
             setLessonTitle("");
+            setDifficulty("easy");
+            setCsvFile(null);
             setEditingId(null);
             setShowModal(false);
-
         } catch (error) {
             console.error("Error saving lesson:", error);
         }
     };
 
     // Displaying Lessons
+    // const fetchLessons = async () => {
+    //     try {
+    //         const q = query(
+    //             collection(db, "lessons"),
+    //             orderBy("createdAt", "desc")
+    //         );
+
+    //         const querySnapshot = await getDocs(q);
+
+    //         const lessonsData = querySnapshot.docs.map(doc => ({
+    //             id: doc.id,
+    //             ...doc.data()
+    //         }));
+
+    //         setLessons(lessonsData);
+
+    //     } catch (error) {
+    //         console.error("Error fetching lessons:", error);
+    //     }
+    // };
     const fetchLessons = async () => {
         try {
             const q = query(
@@ -75,13 +136,12 @@ function Lessons() {
 
             const querySnapshot = await getDocs(q);
 
-            const lessonsData = querySnapshot.docs.map(doc => ({
+            const lessonsData = querySnapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data()
             }));
 
             setLessons(lessonsData);
-
         } catch (error) {
             console.error("Error fetching lessons:", error);
         }
@@ -107,72 +167,131 @@ function Lessons() {
     };
 
     // Editing Lessons
+    // const handleEdit = (lesson) => {
+    //     setLessonTitle(lesson.title);
+    //     setEditingId(lesson.id);
+    //     setShowModal(true);
+    // };
     const handleEdit = (lesson) => {
-        setLessonTitle(lesson.title);
+        setLessonTitle(lesson.title || "");
+        setDifficulty(lesson.difficulty || "easy");
+        setCsvFile(null);
         setEditingId(lesson.id);
         setShowModal(true);
     };
 
+    const saveQuestionsToLesson = async (lessonId, rows, selectedDifficulty) => {
+        for (const row of rows) {
+            const questionData = {
+                question: row.question || "",
+                answer: row.answer || "",
+                type: selectedDifficulty === "easy" ? "multiple_choice" : "short_answer"
+            };
 
+            if (selectedDifficulty === "easy") {
+                questionData.choices = row.choices
+                    ? row.choices.split(";").map((choice) => choice.trim())
+                    : [];
+            }
+
+            await addDoc(
+                collection(db, "lessons", lessonId, "questions"),
+                questionData
+            );
+        }
+    };
 
     return (
-        <div className="lessons-cont">
 
+
+        <div className="lessons-cont">
             <div className="lesson-header">
-                <div>Lessons Management</div>
+                <h1>Lesson Management</h1>
 
                 <div className="lesson-buttons-cont">
                     <button className="lesson-add-button" onClick={() => setShowModal(true)}>
-                        Add Lesson
+                        + Create Lesson
                     </button>
                 </div>
             </div>
 
-            <div className="lesson-list-cont">
+            <div className="lesson-table-card">
+                <div className="lesson-table-head">
+                    <span>Lesson Title</span>
+                    <span>Words</span>
+                    <span>Completed</span>
+                    <span>Rating</span>
+                    <span>Actions</span>
+                </div>
 
-                {lessons.length === 0 ? (
-                    <p>No lessons found.</p>
-                ) : (
-                    lessons.map((lesson) => (
-                        <div key={lesson.id} className="lesson-item">
+                <div className="lesson-list-cont">
+                    {lessons.length === 0 ? (
+                        <p className="empty-state">No lessons found.</p>
+                    ) : (
+                        lessons.map((lesson) => (
+                            <div key={lesson.id} className="lesson-row">
+                                <span className="lesson-title">{lesson.title}</span>
+                                <span>{lesson.words || 0}</span>
+                                <span>{lesson.completed || 0}</span>
+                                <span>{lesson.rating || "—"}</span>
 
-                            <span>{lesson.title}</span>
+                                <div className="lesson-actions">
+                                    <button className="icon-button edit" onClick={() => handleEdit(lesson)}>
+                                        <FiEdit2 />
+                                    </button>
 
-                            <div className="lesson-actions">
-
-                                <button onClick={() => handleEdit(lesson)}>
-                                    Edit
-                                </button>
-
-                                <button onClick={() => handleDelete(lesson.id)}>
-                                    Delete
-                                </button>
-
+                                    <button className="icon-button delete" onClick={() => handleDelete(lesson.id)}>
+                                        <FiTrash2 />
+                                    </button>
+                                </div>
                             </div>
-
-                        </div>
-                    ))
-                )}
-
+                        ))
+                    )}
+                </div>       
             </div>
 
-            {/* MODAL */}
             {showModal && (
                 <div className="modal-overlay">
                     <div className="modal-box">
-
-                        <h2>Add Lesson</h2>
+                        <h2>{editingId ? "Edit Lesson" : "Add Lesson"}</h2>
 
                         <form onSubmit={handleSubmit}>
-                            {/* <label >Lesson Title</label> */}
-                            <input type="text" placeholder="Lesson title" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} required />
+                            <input
+                                type="text"
+                                placeholder="Lesson title"
+                                value={lessonTitle}
+                                onChange={(e) => setLessonTitle(e.target.value)}
+                                required
+                            />
+
+                            <select
+                                value={difficulty}
+                                onChange={(e) => setDifficulty(e.target.value)}
+                                required
+                            >
+                                <option value="easy">Easy</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="hard">Hard</option>
+                            </select>
+
+                            <input
+                                type="file"
+                                accept=".csv"
+                                onChange={(e) => setCsvFile(e.target.files[0])}
+                                required={!editingId}
+                            />
 
                             <div className="modal-buttons">
                                 <button type="submit">Save</button>
-
                                 <button
                                     type="button"
-                                    onClick={() => setShowModal(false)}
+                                    onClick={() => {
+                                        setShowModal(false);
+                                        setLessonTitle("");
+                                        setDifficulty("easy");
+                                        setCsvFile(null);
+                                        setEditingId(null);
+                                    }}
                                 >
                                     Cancel
                                 </button>
@@ -182,8 +301,8 @@ function Lessons() {
                     </div>
                 </div>
             )}
-
         </div>
+
     );
 }
 
