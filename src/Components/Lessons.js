@@ -9,13 +9,14 @@ function Lessons() {
     const [lessons, setLessons] = useState([]);
     const [editingId, setEditingId] = useState(null);
     const [difficulty, setDifficulty] = useState("easy");
+    const [category, setCategory] = useState("");
     const [csvFile, setCsvFile] = useState(null);
     const [fileError, setFileError] = useState("");
 
     const parseCSVFile = async (file) => {
         const text = await file.text();
 
-        const lines = text
+        const lines = text  
             .split("\n")
             .map((line) => line.trim())
             .filter((line) => line !== "");
@@ -60,6 +61,10 @@ function Lessons() {
             return;
         }
 
+        if (!category) {
+            alert("Please select a category")
+        }
+
         if (!editingId && !csvFile) {
             alert("Please upload a CSV file");
             return;
@@ -74,7 +79,8 @@ function Lessons() {
             if (editingId) {
                 await updateDoc(doc(db, "lessons", editingId), {
                     title: lessonTitle,
-                    difficulty: difficulty
+                    difficulty: difficulty,
+                    category: category
                 });
 
                 alert("Lesson updated successfully!");
@@ -84,6 +90,7 @@ function Lessons() {
                 const lessonRef = await addDoc(collection(db, "lessons"), {
                     title: lessonTitle,
                     difficulty: difficulty,
+                    category: category,
                     createdAt: serverTimestamp()
                 });
 
@@ -96,7 +103,8 @@ function Lessons() {
                     await saveQuestionsToLesson(
                         lessonId,
                         parsedRows,
-                        difficulty
+                        difficulty,
+                        category
                     );
 
                     alert("Lesson and questions added successfully!");
@@ -107,6 +115,7 @@ function Lessons() {
 
             setLessonTitle("");
             setDifficulty("");
+            setCategory("");
             setCsvFile(null);
             setEditingId(null);
             setShowModal(false);
@@ -186,6 +195,7 @@ function Lessons() {
     const handleEdit = (lesson) => {
         setLessonTitle(lesson.title || "");
         setDifficulty(lesson.difficulty || "easy");
+        setCategory(lesson.category || "easy")
         setCsvFile(null);
         setEditingId(lesson.id);
         setShowModal(true);
@@ -280,9 +290,22 @@ function Lessons() {
                                 onChange={(e) => setDifficulty(e.target.value)}
                                 required
                             >
+                                <option value="" disabled>Choose Lesson Category</option>
                                 <option value="easy">Easy</option>
                                 <option value="intermediate">Intermediate</option>
                                 <option value="hard">Hard</option>
+                            </select>
+
+                            <select
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                                required
+                            >
+                                <option value="" disabled>Choose Lesson Category</option>
+                                <option value="travel-culture">Travel & Culture</option>
+                                <option value="family-friends">Family & Friends</option>
+                                <option value="work-business">Work & Business</option>
+                                <option value="personal-interest">Personal Interest</option>
                             </select>
 
                             <label className="csv-upload-button">
