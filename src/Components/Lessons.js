@@ -12,11 +12,12 @@ function Lessons() {
     const [category, setCategory] = useState("");
     const [csvFile, setCsvFile] = useState(null);
     const [fileError, setFileError] = useState("");
+    const [pathway, setPathway] = useState("");
 
     const parseCSVFile = async (file) => {
         const text = await file.text();
 
-        const lines = text  
+        const lines = text
             .split("\n")
             .map((line) => line.trim())
             .filter((line) => line !== "");
@@ -75,12 +76,18 @@ function Lessons() {
             return;
         }
 
+        if (!pathway) {
+            alert("Please select a pathway");
+            return;
+        }
+
         try {
             if (editingId) {
                 await updateDoc(doc(db, "lessons", editingId), {
                     title: lessonTitle,
                     difficulty: difficulty,
-                    category: category
+                    category: category,
+                    pathway: pathway
                 });
 
                 alert("Lesson updated successfully!");
@@ -91,6 +98,7 @@ function Lessons() {
                     title: lessonTitle,
                     difficulty: difficulty,
                     category: category,
+                    pathway: pathway,
                     createdAt: serverTimestamp()
                 });
 
@@ -116,6 +124,7 @@ function Lessons() {
             setLessonTitle("");
             setDifficulty("");
             setCategory("");
+            setPathway("");
             setCsvFile(null);
             setEditingId(null);
             setShowModal(false);
@@ -195,7 +204,8 @@ function Lessons() {
     const handleEdit = (lesson) => {
         setLessonTitle(lesson.title || "");
         setDifficulty(lesson.difficulty || "easy");
-        setCategory(lesson.category || "easy")
+        setCategory(lesson.category || "easy");
+        setPathway(lesson.pathway || "");
         setCsvFile(null);
         setEditingId(lesson.id);
         setShowModal(true);
@@ -290,7 +300,7 @@ function Lessons() {
                                 onChange={(e) => setDifficulty(e.target.value)}
                                 required
                             >
-                                <option value="" disabled>Choose Lesson Category</option>
+                                <option value="" disabled>Select Difficulty</option>
                                 <option value="easy">Easy</option>
                                 <option value="intermediate">Intermediate</option>
                                 <option value="hard">Hard</option>
@@ -306,6 +316,21 @@ function Lessons() {
                                 <option value="family-friends">Family & Friends</option>
                                 <option value="work-business">Work & Business</option>
                                 <option value="personal-interest">Personal Interest</option>
+                            </select>
+
+                            <select
+                                value={pathway}
+                                onChange={(e) => setPathway(e.target.value)}
+                                required
+                            >
+                                <option value="" disabled>Select pathway</option>
+                                <option value="greetings">Greetings</option>
+                                <option value="food">Food</option>
+                                <option value="travel">Travel</option>
+                                <option value="family">Family</option>
+                                <option value="fruits">Fruits</option>
+                                <option value="animals">Animals</option>
+                                <option value="body-parts">Body Parts</option>
                             </select>
 
                             <label className="csv-upload-button">
