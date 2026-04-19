@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import {
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    orderBy,
+    doc,
+    updateDoc,
+    deleteDoc,
+    serverTimestamp
+} from "firebase/firestore";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 
 function Lessons() {
@@ -8,11 +18,83 @@ function Lessons() {
     const [lessonTitle, setLessonTitle] = useState("");
     const [lessons, setLessons] = useState([]);
     const [editingId, setEditingId] = useState(null);
-    const [difficulty, setDifficulty] = useState("easy");
+
+    const [difficulty, setDifficulty] = useState("");
     const [category, setCategory] = useState("");
+    const [pathway, setPathway] = useState("");
+    const [lessonType, setLessonType] = useState("");
+
     const [csvFile, setCsvFile] = useState(null);
     const [fileError, setFileError] = useState("");
-    const [pathway, setPathway] = useState("");
+
+    const pathwayMap = {
+        "travel-culture": [
+            "greetings",
+            "food",
+            "travel",
+            "directions",
+            "cultural-etiquette"
+        ],
+        "family-friends": [
+            "introductions",
+            "family",
+            "relationships",
+            "daily-conversations",
+            "emotions"
+        ],
+        "work-business": [
+            "workplace-basics",
+            "meetings",
+            "customer-service",
+            "professional-phrases",
+            "job-interview"
+        ],
+        "personal-interest": [
+            "animals",
+            "fruits",
+            "body-parts",
+            "shopping",
+            "hobbies"
+        ]
+    };
+
+    const lessonTypeMap = {
+        easy: ["multiple_choice", "image_identification"],
+        intermediate: ["spelling", "pronunciation"],
+        hard: ["phrase_typing", "phrase_speaking"]
+    };
+
+    const formatLabel = (value) => {
+        if (!value) return "—";
+        return value
+            .split("-")
+            .join(" ")
+            .split("_")
+            .join(" ")
+            .split(" ")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+    };
+
+    const resetForm = () => {
+        setShowModal(false);
+        setLessonTitle("");
+        setDifficulty("");
+        setCategory("");
+        setPathway("");
+        setLessonType("");
+        setCsvFile(null);
+        setFileError("");
+        setEditingId(null);
+    };
+
+    useEffect(() => {
+        setPathway("");
+    }, [category]);
+
+    useEffect(() => {
+        setLessonType("");
+    }, [difficulty]);
 
     const parseCSVFile = async (file) => {
         const text = await file.text();
@@ -26,7 +108,9 @@ function Lessons() {
             throw new Error("CSV file is empty or missing data.");
         }
 
-        const headers = lines[0].split(",").map((header) => header.trim().toLowerCase());
+        const headers = lines[0]
+            .split(",")
+            .map((header) => header.trim().toLowerCase());
 
         const questionIndex = headers.indexOf("question");
         const answerIndex = headers.indexOf("answer");
@@ -49,113 +133,49 @@ function Lessons() {
         return rows;
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const saveQuestionsToLesson = async (
+        lessonId,
+        rows,
+        selectedDifficulty,
+        selectedLessonType
+    ) => {
+        for (const row of rows) {
+            const questionData = {
+                question: row.question || "",
+                answer: row.answer || "",
+                difficulty: selectedDifficulty,
+                lessonType: selectedLessonType
+            };
 
-        if (!lessonTitle.trim()) {
-            alert("Lesson title is required");
-            return;
-        }
-
-        if (!difficulty) {
-            alert("Please select difficulty");
-            return;
-        }
-
-        if (!category) {
-            alert("Please select a category")
-        }
-
-        if (!editingId && !csvFile) {
-            alert("Please upload a CSV file");
-            return;
-        }
-
-        if (fileError) {
-            alert("Please upload a valid CSV file.");
-            return;
-        }
-
-        if (!pathway) {
-            alert("Please select a pathway");
-            return;
-        }
-
-        try {
-            if (editingId) {
-                await updateDoc(doc(db, "lessons", editingId), {
-                    title: lessonTitle,
-                    difficulty: difficulty,
-                    category: category,
-                    pathway: pathway
-                });
-
-                alert("Lesson updated successfully!");
-
+            if (
+                selectedLessonType === "multiple_choice" ||
+                selectedLessonType === "image_identification"
+            ) {
+                questionData.type = "multiple_choice";
+                questionData.choices = row.choices
+                    ? row.choices.split(";").map((choice) => choice.trim())
+                    : [];
+            } else if (
+                selectedLessonType === "spelling" ||
+                selectedLessonType === "phrase_typing"
+            ) {
+                questionData.type = "text_input";
+            } else if (
+                selectedLessonType === "pronunciation" ||
+                selectedLessonType === "phrase_speaking"
+            ) {
+                questionData.type = "speech_input";
             } else {
-
-                const lessonRef = await addDoc(collection(db, "lessons"), {
-                    title: lessonTitle,
-                    difficulty: difficulty,
-                    category: category,
-                    pathway: pathway,
-                    createdAt: serverTimestamp()
-                });
-
-                const lessonId = lessonRef.id;
-
-                if (csvFile) {
-
-                    const parsedRows = await parseCSVFile(csvFile);
-
-                    await saveQuestionsToLesson(
-                        lessonId,
-                        parsedRows,
-                        difficulty,
-                        category
-                    );
-
-                    alert("Lesson and questions added successfully!");
-                }
+                questionData.type = "text_input";
             }
 
-            fetchLessons();
-
-            setLessonTitle("");
-            setDifficulty("");
-            setCategory("");
-            setPathway("");
-            setCsvFile(null);
-            setEditingId(null);
-            setShowModal(false);
-
-        } catch (error) {
-            console.error("Error saving lesson:", error);
-            alert("Something went wrong.");
+            await addDoc(
+                collection(db, "lessons", lessonId, "questions"),
+                questionData
+            );
         }
     };
 
-    // Displaying Lessons
-    // const fetchLessons = async () => {
-    //     try {
-    //         const q = query(
-    //             collection(db, "lessons"),
-    //             orderBy("createdAt", "desc")
-    //         );
-
-    //         const querySnapshot = await getDocs(q);
-
-    //         const lessonsData = querySnapshot.docs.map(doc => ({
-    //             id: doc.id,
-    //             ...doc.data()
-    //         }));
-
-    //         setLessons(lessonsData);
-
-    //     } catch (error) {
-    //         console.error("Error fetching lessons:", error);
-    //     }
-    // };
     const fetchLessons = async () => {
         try {
             const q = query(
@@ -176,12 +196,95 @@ function Lessons() {
         }
     };
 
-    // Page gets refreshed after every added lessons
     useEffect(() => {
         fetchLessons();
     }, []);
 
-    // Deleting Lessons
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!lessonTitle.trim()) {
+            alert("Lesson title is required");
+            return;
+        }
+
+        if (!difficulty) {
+            alert("Please select difficulty");
+            return;
+        }
+
+        if (!category) {
+            alert("Please select a category");
+            return;
+        }
+
+        if (!pathway) {
+            alert("Please select a pathway");
+            return;
+        }
+
+        if (!lessonType) {
+            alert("Please select a lesson type");
+            return;
+        }
+
+        if (!editingId && !csvFile) {
+            alert("Please upload a CSV file");
+            return;
+        }
+
+        if (fileError) {
+            alert("Please upload a valid CSV file.");
+            return;
+        }
+
+        try {
+            if (editingId) {
+                await updateDoc(doc(db, "lessons", editingId), {
+                    title: lessonTitle,
+                    difficulty,
+                    category,
+                    pathway,
+                    lessonType
+                });
+
+                alert("Lesson updated successfully!");
+            } else {
+                const lessonRef = await addDoc(collection(db, "lessons"), {
+                    title: lessonTitle,
+                    difficulty,
+                    category,
+                    pathway,
+                    lessonType,
+                    createdAt: serverTimestamp()
+                });
+
+                const lessonId = lessonRef.id;
+
+                if (csvFile) {
+                    const parsedRows = await parseCSVFile(csvFile);
+
+                    await saveQuestionsToLesson(
+                        lessonId,
+                        parsedRows,
+                        difficulty,
+                        lessonType
+                    );
+
+                    alert("Lesson and questions added successfully!");
+                } else {
+                    alert("Lesson added successfully!");
+                }
+            }
+
+            await fetchLessons();
+            resetForm();
+        } catch (error) {
+            console.error("Error saving lesson:", error);
+            alert("Something went wrong.");
+        }
+    };
+
     const handleDelete = async (id) => {
         const confirmDelete = window.confirm("Delete this lesson?");
 
@@ -189,58 +292,34 @@ function Lessons() {
 
         try {
             await deleteDoc(doc(db, "lessons", id));
-            fetchLessons(); // refresh list
+            fetchLessons();
         } catch (error) {
             console.error("Error deleting lesson:", error);
         }
     };
 
-    // Editing Lessons
-    // const handleEdit = (lesson) => {
-    //     setLessonTitle(lesson.title);
-    //     setEditingId(lesson.id);
-    //     setShowModal(true);
-    // };
     const handleEdit = (lesson) => {
         setLessonTitle(lesson.title || "");
-        setDifficulty(lesson.difficulty || "easy");
-        setCategory(lesson.category || "easy");
+        setDifficulty(lesson.difficulty || "");
+        setCategory(lesson.category || "");
         setPathway(lesson.pathway || "");
+        setLessonType(lesson.lessonType || "");
         setCsvFile(null);
+        setFileError("");
         setEditingId(lesson.id);
         setShowModal(true);
     };
 
-    const saveQuestionsToLesson = async (lessonId, rows, selectedDifficulty) => {
-        for (const row of rows) {
-            const questionData = {
-                question: row.question || "",
-                answer: row.answer || "",
-                type: selectedDifficulty === "easy" ? "multiple_choice" : "short_answer"
-            };
-
-            if (selectedDifficulty === "easy") {
-                questionData.choices = row.choices
-                    ? row.choices.split(";").map((choice) => choice.trim())
-                    : [];
-            }
-
-            await addDoc(
-                collection(db, "lessons", lessonId, "questions"),
-                questionData
-            );
-        }
-    };
-
     return (
-
-
         <div className="lessons-cont">
             <div className="lesson-header">
                 <h1>Lesson Management</h1>
 
                 <div className="lesson-buttons-cont">
-                    <button className="lesson-add-button" onClick={() => setShowModal(true)}>
+                    <button
+                        className="lesson-add-button"
+                        onClick={() => setShowModal(true)}
+                    >
                         + Create Lesson
                     </button>
                 </div>
@@ -249,9 +328,10 @@ function Lessons() {
             <div className="lesson-table-card">
                 <div className="lesson-table-head">
                     <span>Lesson Title</span>
-                    <span>Words</span>
-                    <span>Completed</span>
-                    <span>Rating</span>
+                    <span>Difficulty</span>
+                    <span>Category</span>
+                    <span>Pathway</span>
+                    <span>Lesson Type</span>
                     <span>Actions</span>
                 </div>
 
@@ -262,16 +342,23 @@ function Lessons() {
                         lessons.map((lesson) => (
                             <div key={lesson.id} className="lesson-row">
                                 <span className="lesson-title">{lesson.title}</span>
-                                <span>{lesson.words || 0}</span>
-                                <span>{lesson.completed || 0}</span>
-                                <span>{lesson.rating || "—"}</span>
+                                <span>{formatLabel(lesson.difficulty)}</span>
+                                <span>{formatLabel(lesson.category)}</span>
+                                <span>{formatLabel(lesson.pathway)}</span>
+                                <span>{formatLabel(lesson.lessonType)}</span>
 
                                 <div className="lesson-actions">
-                                    <button className="icon-button edit" onClick={() => handleEdit(lesson)}>
+                                    <button
+                                        className="icon-button edit"
+                                        onClick={() => handleEdit(lesson)}
+                                    >
                                         <FiEdit2 />
                                     </button>
 
-                                    <button className="icon-button delete" onClick={() => handleDelete(lesson.id)}>
+                                    <button
+                                        className="icon-button delete"
+                                        onClick={() => handleDelete(lesson.id)}
+                                    >
                                         <FiTrash2 />
                                     </button>
                                 </div>
@@ -300,7 +387,9 @@ function Lessons() {
                                 onChange={(e) => setDifficulty(e.target.value)}
                                 required
                             >
-                                <option value="" disabled>Select Difficulty</option>
+                                <option value="" disabled>
+                                    Select Difficulty
+                                </option>
                                 <option value="easy">Easy</option>
                                 <option value="intermediate">Intermediate</option>
                                 <option value="hard">Hard</option>
@@ -311,7 +400,9 @@ function Lessons() {
                                 onChange={(e) => setCategory(e.target.value)}
                                 required
                             >
-                                <option value="" disabled>Choose Lesson Category</option>
+                                <option value="" disabled>
+                                    Choose Lesson Category
+                                </option>
                                 <option value="travel-culture">Travel & Culture</option>
                                 <option value="family-friends">Family & Friends</option>
                                 <option value="work-business">Work & Business</option>
@@ -322,15 +413,40 @@ function Lessons() {
                                 value={pathway}
                                 onChange={(e) => setPathway(e.target.value)}
                                 required
+                                disabled={!category}
                             >
-                                <option value="" disabled>Select pathway</option>
-                                <option value="greetings">Greetings</option>
-                                <option value="food">Food</option>
-                                <option value="travel">Travel</option>
-                                <option value="family">Family</option>
-                                <option value="fruits">Fruits</option>
-                                <option value="animals">Animals</option>
-                                <option value="body-parts">Body Parts</option>
+                                <option value="" disabled>
+                                    {!category
+                                        ? "Select category first"
+                                        : "Select pathway"}
+                                </option>
+
+                                {category &&
+                                    pathwayMap[category]?.map((item) => (
+                                        <option key={item} value={item}>
+                                            {formatLabel(item)}
+                                        </option>
+                                    ))}
+                            </select>
+
+                            <select
+                                value={lessonType}
+                                onChange={(e) => setLessonType(e.target.value)}
+                                required
+                                disabled={!difficulty}
+                            >
+                                <option value="" disabled>
+                                    {!difficulty
+                                        ? "Select difficulty first"
+                                        : "Select lesson type"}
+                                </option>
+
+                                {difficulty &&
+                                    lessonTypeMap[difficulty]?.map((item) => (
+                                        <option key={item} value={item}>
+                                            {formatLabel(item)}
+                                        </option>
+                                    ))}
                             </select>
 
                             <label className="csv-upload-button">
@@ -367,28 +483,35 @@ function Lessons() {
                                     {fileError}
                                 </div>
                             )}
+
                             <div className="modal-buttons">
-                                <button type="submit" disabled={!lessonTitle || !difficulty || (!editingId && !csvFile)}>Save</button>
+                                <button
+                                    type="submit"
+                                    disabled={
+                                        !lessonTitle.trim() ||
+                                        !difficulty ||
+                                        !category ||
+                                        !pathway ||
+                                        !lessonType ||
+                                        !!fileError ||
+                                        (!editingId && !csvFile)
+                                    }
+                                >
+                                    Save
+                                </button>
+
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setShowModal(false);
-                                        setLessonTitle("");
-                                        setDifficulty("easy");
-                                        setCsvFile(null);
-                                        setEditingId(null);
-                                    }}
+                                    onClick={resetForm}
                                 >
                                     Cancel
                                 </button>
                             </div>
                         </form>
-
                     </div>
                 </div>
             )}
         </div>
-
     );
 }
 
