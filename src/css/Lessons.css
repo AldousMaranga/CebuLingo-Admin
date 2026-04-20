@@ -285,3 +285,10 @@
     color: #EF4444;
     font-weight: 500;
 }
+
+.image-upload-hint {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #64748B;
+    line-height: 1.5;
+}

@@ -59,7 +59,7 @@ function Lessons() {
     };
 
     const lessonTypeMap = {
-        easy: ["multiple_choice", "image_identification"],
+        easy: ["image_identification"],
         intermediate: ["spelling", "pronunciation"],
         hard: ["phrase_typing", "phrase_speaking"]
     };
@@ -96,37 +96,73 @@ function Lessons() {
         setLessonType("");
     }, [difficulty]);
 
+    useEffect(() => {
+        if (difficulty === "easy") {
+            setLessonType("image_identification");
+        }
+    }, [difficulty]);
+
+    const parseCSVLine = (line) => {
+        const values = [];
+        let currentValue = "";
+        let inQuotes = false;
+
+        for (let index = 0; index < line.length; index += 1) {
+            const currentChar = line[index];
+            const nextChar = line[index + 1];
+
+            if (currentChar === "\"") {
+                if (inQuotes && nextChar === "\"") {
+                    currentValue += "\"";
+                    index += 1;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (currentChar === "," && !inQuotes) {
+                values.push(currentValue.trim());
+                currentValue = "";
+            } else {
+                currentValue += currentChar;
+            }
+        }
+
+        values.push(currentValue.trim());
+
+        return values;
+    };
+
     const parseCSVFile = async (file) => {
         const text = await file.text();
 
         const lines = text
             .split("\n")
-            .map((line) => line.trim())
+            .map((line) => line.replace(/\r/g, "").trim())
             .filter((line) => line !== "");
 
         if (lines.length < 2) {
             throw new Error("CSV file is empty or missing data.");
         }
 
-        const headers = lines[0]
-            .split(",")
+        const parsedHeaders = parseCSVLine(lines[0])
             .map((header) => header.trim().toLowerCase());
 
-        const questionIndex = headers.indexOf("question");
-        const answerIndex = headers.indexOf("answer");
-        const choicesIndex = headers.indexOf("choices");
+        const questionIndex = parsedHeaders.indexOf("question");
+        const answerIndex = parsedHeaders.indexOf("answer");
+        const choicesIndex = parsedHeaders.indexOf("choices");
+        const imageUrlIndex = parsedHeaders.indexOf("image_url");
 
         if (questionIndex === -1 || answerIndex === -1) {
             throw new Error("CSV must contain 'question' and 'answer' columns.");
         }
 
         const rows = lines.slice(1).map((line) => {
-            const cols = line.split(",").map((col) => col.trim());
+            const cols = parseCSVLine(line);
 
             return {
                 question: cols[questionIndex] || "",
                 answer: cols[answerIndex] || "",
-                choices: choicesIndex !== -1 ? cols[choicesIndex] || "" : ""
+                choices: choicesIndex !== -1 ? cols[choicesIndex] || "" : "",
+                imageUrl: imageUrlIndex !== -1 ? cols[imageUrlIndex] || "" : ""
             };
         });
 
@@ -155,6 +191,24 @@ function Lessons() {
                 questionData.choices = row.choices
                     ? row.choices.split(";").map((choice) => choice.trim())
                     : [];
+
+                if (selectedLessonType === "image_identification") {
+                    if (!row.imageUrl) {
+                        throw new Error(
+                            "Each image identification question must include an image_url in the CSV."
+                        );
+                    }
+
+                    try {
+                        new URL(row.imageUrl);
+                    } catch (error) {
+                        throw new Error(
+                            `Invalid image_url in CSV: ${row.imageUrl}`
+                        );
+                    }
+
+                    questionData.imageUrl = row.imageUrl;
+                }
             } else if (
                 selectedLessonType === "spelling" ||
                 selectedLessonType === "phrase_typing"
@@ -281,7 +335,7 @@ function Lessons() {
             resetForm();
         } catch (error) {
             console.error("Error saving lesson:", error);
-            alert("Something went wrong.");
+            alert(error.message || "Something went wrong.");
         }
     };
 
@@ -433,7 +487,7 @@ function Lessons() {
                                 value={lessonType}
                                 onChange={(e) => setLessonType(e.target.value)}
                                 required
-                                disabled={!difficulty}
+                                disabled={!difficulty || difficulty === "easy"}
                             >
                                 <option value="" disabled>
                                     {!difficulty
@@ -481,6 +535,15 @@ function Lessons() {
                             {fileError && (
                                 <div className="csv-error">
                                     {fileError}
+                                </div>
+                            )}
+
+                            {lessonType === "image_identification" && (
+                                <div className="image-upload-hint">
+                                    Easy lessons use image identification. Add an
+                                    <code> image_url </code>
+                                    column to the CSV with the direct image link for
+                                    each question.
                                 </div>
                             )}
 
