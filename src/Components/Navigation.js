@@ -1,15 +1,87 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import {
+    BrowserRouter,
+    Routes,
+    Route,
+    Link,
+    Navigate
+} from "react-router-dom";
+import { getIdTokenResult, onAuthStateChanged, signOut } from "firebase/auth";
 import Home from './Home';
 import Users from './Users';
 import Lessons from './Lessons';
 import Settings from './Settings';
+import Login from "./Login";
+import { auth } from "../firebase";
 
-function Navigation() {
+function AuthLoading() {
+    return <div className="auth-loading">Checking admin access...</div>;
+}
+
+function ProtectedRoute({ authStatus, children }) {
+    if (authStatus === "loading") {
+        return <AuthLoading />;
+    }
+
+    if (authStatus !== "authenticated") {
+        return <Navigate to="/login" replace />;
+    }
+
+    return children;
+}
+
+function NavigationShell() {
+    const [authState, setAuthState] = useState({
+        status: "loading",
+        error: ""
+    });
+    const authErrorRef = useRef("");
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                setAuthState({
+                    status: "unauthenticated",
+                    error: authErrorRef.current
+                });
+                authErrorRef.current = "";
+                return;
+            }
+
+            setAuthState({
+                status: "loading",
+                error: ""
+            });
+
+            try {
+                const tokenResult = await getIdTokenResult(user);
+
+                if (tokenResult.claims.admin === true) {
+                    authErrorRef.current = "";
+                    setAuthState({
+                        status: "authenticated",
+                        error: ""
+                    });
+                    return;
+                }
+
+                authErrorRef.current = "This account does not have admin access.";
+                await signOut(auth);
+            } catch (error) {
+                authErrorRef.current = error.message || "Unable to verify admin access.";
+                await signOut(auth);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const showNavigation = authState.status === "authenticated";
+
     return (
         <div>
-            <BrowserRouter>
+            {showNavigation && (
                 <div className="nav-cont">
-                    {/* <Link to='/home'> */}
                     <div className="logo-cont" >
                         <div className="logo-div">
                             <img src='images/logo.png' width="auto" height="80px"  alt="logo"/>
@@ -26,19 +98,71 @@ function Navigation() {
                     <Link to="/lessons" className='Link'>Lessons</Link>
                     <Link to="/settings" className='Link'>Settings</Link>
                 </div>
-
+            )}
 
                 <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/home" element={<Home />} />
-                    <Route path="/users" element={<Users />} />
-                    <Route path="/lessons" element={<Lessons />} />
-                    <Route path="/settings" element={<Settings />} />
+                    <Route
+                        path="/login"
+                        element={
+                            <Login
+                                isAuthenticated={authState.status === "authenticated"}
+                                authReady={authState.status !== "loading"}
+                                authError={authState.error}
+                            />
+                        }
+                    />
+                    <Route
+                        path="/"
+                        element={
+                            authState.status === "authenticated"
+                                ? <Navigate to="/home" replace />
+                                : <Navigate to="/login" replace />
+                        }
+                    />
+                    <Route
+                        path="/home"
+                        element={
+                            <ProtectedRoute authStatus={authState.status}>
+                                <Home />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/users"
+                        element={
+                            <ProtectedRoute authStatus={authState.status}>
+                                <Users />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/lessons"
+                        element={
+                            <ProtectedRoute authStatus={authState.status}>
+                                <Lessons />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/settings"
+                        element={
+                            <ProtectedRoute authStatus={authState.status}>
+                                <Settings />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
-            </BrowserRouter>
         </div>
+    );
+}
 
-    )
+function Navigation() {
+    return (
+        <BrowserRouter>
+            <NavigationShell />
+        </BrowserRouter>
+    );
 }
 
 export default Navigation;

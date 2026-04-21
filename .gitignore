@@ -21,3 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# local admin helpers / secrets
+/scripts/*.local.js
+firebase-adminsdk-*.json
+*serviceAccount*.json
