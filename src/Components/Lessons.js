@@ -143,31 +143,44 @@ function Lessons() {
             throw new Error("CSV file is empty or missing data.");
         }
 
-        const parsedHeaders = parseCSVLine(lines[0])
-            .map((header) => header.trim().toLowerCase());
+        const parsedHeaders = parseCSVLine(lines[0]).map((header) =>
+            header.trim().toLowerCase()
+        );
 
-        const questionIndex = parsedHeaders.indexOf("question");
-        const answerIndex = parsedHeaders.indexOf("answer");
-        const choicesIndex = parsedHeaders.indexOf("choices");
-        const imageUrlIndex = parsedHeaders.indexOf("image_url");
+        const getIndex = (...names) =>
+            names.map((name) => parsedHeaders.indexOf(name)).find((index) => index !== -1) ?? -1;
+
+        const questionIndex = getIndex("question");
+        const promptIndex = getIndex("prompt");
+        const targetTextIndex = getIndex("targettext");
+        const answerIndex = getIndex("answer");
+        const acceptedAnswersIndex = getIndex("acceptedanswers", "acceptedanswer");
+        const recognitionLangIndex = getIndex("recognitionlang");
+        const typeIndex = getIndex("type");
+        const choicesIndex = getIndex("choices");
+        const imageUrlIndex = getIndex("imageurl", "image_url", "image", "picture", "photo");
 
         if (questionIndex === -1 || answerIndex === -1) {
             throw new Error("CSV must contain 'question' and 'answer' columns.");
         }
 
-        const rows = lines.slice(1).map((line) => {
+        return lines.slice(1).map((line) => {
             const cols = parseCSVLine(line);
 
             return {
                 question: cols[questionIndex] || "",
+                prompt: promptIndex !== -1 ? cols[promptIndex] || "" : "",
+                targetText: targetTextIndex !== -1 ? cols[targetTextIndex] || "" : "",
                 answer: cols[answerIndex] || "",
+                acceptedAnswers: acceptedAnswersIndex !== -1 ? cols[acceptedAnswersIndex] || "" : "",
+                recognitionLang: recognitionLangIndex !== -1 ? cols[recognitionLangIndex] || "" : "",
+                type: typeIndex !== -1 ? cols[typeIndex] || "" : "",
                 choices: choicesIndex !== -1 ? cols[choicesIndex] || "" : "",
                 imageUrl: imageUrlIndex !== -1 ? cols[imageUrlIndex] || "" : ""
             };
         });
-
-        return rows;
     };
+
 
     const saveQuestionsToLesson = async (
         lessonId,
@@ -176,51 +189,34 @@ function Lessons() {
         selectedLessonType
     ) => {
         for (const row of rows) {
+            const normalizedType = (row.type || selectedLessonType || "").trim();
+
             const questionData = {
                 question: row.question || "",
+                prompt: row.prompt || row.question || "",
+                targetText: row.targetText || row.answer || "",
                 answer: row.answer || "",
+                acceptedAnswers: row.acceptedAnswers || "",
+                recognitionLang: row.recognitionLang || "",
                 difficulty: selectedDifficulty,
-                lessonType: selectedLessonType
+                lessonType: normalizedType || selectedLessonType,
+                type: normalizedType || selectedLessonType
             };
 
-            if (
-                selectedLessonType === "multiple_choice" ||
-                selectedLessonType === "image_identification"
-            ) {
-                questionData.type = "multiple_choice";
+            if (row.choices) {
                 questionData.choices = row.choices
-                    ? row.choices.split(";").map((choice) => choice.trim())
-                    : [];
+                    .split(";")
+                    .map((choice) => choice.trim())
+                    .filter(Boolean);
+            }
 
-                if (selectedLessonType === "image_identification") {
-                    if (!row.imageUrl) {
-                        throw new Error(
-                            "Each image identification question must include an image_url in the CSV."
-                        );
-                    }
-
-                    try {
-                        new URL(row.imageUrl);
-                    } catch (error) {
-                        throw new Error(
-                            `Invalid image_url in CSV: ${row.imageUrl}`
-                        );
-                    }
-
+            if (row.imageUrl) {
+                try {
+                    new URL(row.imageUrl);
                     questionData.imageUrl = row.imageUrl;
+                } catch (error) {
+                    throw new Error(`Invalid image URL in CSV: ${row.imageUrl}`);
                 }
-            } else if (
-                selectedLessonType === "spelling" ||
-                selectedLessonType === "phrase_typing"
-            ) {
-                questionData.type = "text_input";
-            } else if (
-                selectedLessonType === "pronunciation" ||
-                selectedLessonType === "phrase_speaking"
-            ) {
-                questionData.type = "speech_input";
-            } else {
-                questionData.type = "text_input";
             }
 
             await addDoc(
@@ -229,6 +225,68 @@ function Lessons() {
             );
         }
     };
+
+
+    // const saveQuestionsToLesson = async (
+    //     lessonId,
+    //     rows,
+    //     selectedDifficulty,
+    //     selectedLessonType
+    // ) => {
+    //     for (const row of rows) {
+    //         const questionData = {
+    //             question: row.question || "",
+    //             answer: row.answer || "",
+    //             difficulty: selectedDifficulty,
+    //             lessonType: selectedLessonType
+    //         };
+
+    //         if (
+    //             selectedLessonType === "multiple_choice" ||
+    //             selectedLessonType === "image_identification"
+    //         ) {
+    //             questionData.type = "multiple_choice";
+    //             questionData.choices = row.choices
+    //                 ? row.choices.split(";").map((choice) => choice.trim())
+    //                 : [];
+
+    //             if (selectedLessonType === "image_identification") {
+    //                 if (!row.imageUrl) {
+    //                     throw new Error(
+    //                         "Each image identification question must include an image_url in the CSV."
+    //                     );
+    //                 }
+
+    //                 try {
+    //                     new URL(row.imageUrl);
+    //                 } catch (error) {
+    //                     throw new Error(
+    //                         `Invalid image_url in CSV: ${row.imageUrl}`
+    //                     );
+    //                 }
+
+    //                 questionData.imageUrl = row.imageUrl;
+    //             }
+    //         } else if (
+    //             selectedLessonType === "spelling" ||
+    //             selectedLessonType === "phrase_typing"
+    //         ) {
+    //             questionData.type = "text_input";
+    //         } else if (
+    //             selectedLessonType === "pronunciation" ||
+    //             selectedLessonType === "phrase_speaking"
+    //         ) {
+    //             questionData.type = "speech_input";
+    //         } else {
+    //             questionData.type = "text_input";
+    //         }
+
+    //         await addDoc(
+    //             collection(db, "lessons", lessonId, "questions"),
+    //             questionData
+    //         );
+    //     }
+    // };
 
     const fetchLessons = async () => {
         try {
