@@ -109,6 +109,10 @@ module.exports = async (request, response) => {
         sendJson(response, 200, recommendation);
     } catch (error) {
         console.error('Recommendation generation failed.', error);
-        sendJson(response, 500, { error: 'Recommendation generation failed.' });
+        sendJson(response, 500, {
+            error: 'Recommendation generation failed.',
+            details: error?.message || 'Unknown error',
+            type: error?.name || 'Error'
+        });
     }
 };
