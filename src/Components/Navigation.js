@@ -77,6 +77,9 @@ function NavigationShell() {
     }, []);
 
     const showNavigation = authState.status === "authenticated";
+    const handleLogout = async () => {
+        await signOut(auth);
+    };
 
     return (
         <div>
@@ -97,6 +100,9 @@ function NavigationShell() {
                     <Link to="/users" className='Link'>Users</Link>
                     <Link to="/lessons" className='Link'>Lessons</Link>
                     <Link to="/settings" className='Link'>Settings</Link>
+                    <button type="button" className='Link nav-link-button' onClick={handleLogout}>
+                        Logout
+                    </button>
                 </div>
             )}
 

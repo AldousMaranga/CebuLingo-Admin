@@ -1,7 +1,9 @@
 .nav-cont {
     color: white;
     background-color: #1E293B;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
+    padding-top: 6px;
+    padding-bottom: 6px;
 }
 
 .logo-cont {
@@ -31,4 +33,26 @@
     text-decoration: none;
     color: #92A1B6;
     /* background-color: yellow; */
+}
+
+.nav-link-button {
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.18) 0%, rgba(220, 38, 38, 0.24) 100%);
+    border: 1px solid rgba(248, 113, 113, 0.28);
+    border-radius: 12px;
+    font: inherit;
+    cursor: pointer;
+    color: #fecaca;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 7px 16px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 6px 16px rgba(127, 29, 29, 0.14);
+    transition: 0.18s ease;
+}
+
+.nav-link-button:hover {
+    background: linear-gradient(180deg, rgba(248, 113, 113, 0.24) 0%, rgba(220, 38, 38, 0.3) 100%);
+    color: #fff1f2;
+    border-color: rgba(252, 165, 165, 0.34);
 }
