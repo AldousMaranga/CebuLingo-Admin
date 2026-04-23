@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import {
     collection,
     doc,
@@ -13,6 +13,7 @@ function Users() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
     const [deletingId, setDeletingId] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
 
     const getTimestampValue = (value) => {
         if (!value) return 0;
@@ -115,6 +116,28 @@ function Users() {
         fetchUsers();
     }, [fetchUsers]);
 
+    const filteredUsers = useMemo(() => {
+        const normalizedSearch = searchTerm.trim().toLowerCase();
+
+        if (!normalizedSearch) {
+            return users;
+        }
+
+        return users.filter((user) => {
+            const searchableText = [
+                user.name,
+                user.email,
+                user.currentLevel,
+                `level ${user.currentLevel}`
+            ]
+                .filter((value) => value !== undefined && value !== null)
+                .join(" ")
+                .toLowerCase();
+
+            return searchableText.includes(normalizedSearch);
+        });
+    }, [searchTerm, users]);
+
     const handleDeleteUser = async (user) => {
         const confirmDelete = window.confirm(
             `Delete ${user.name}'s saved app data from users, user_accounts, and leaderboard?`
@@ -154,6 +177,27 @@ function Users() {
                 </div>
 
                 <div className="user-buttons-cont">
+                    <label className="user-search">
+                        <FiSearch />
+                        <input
+                            type="search"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            placeholder="Search email, username, level..."
+                            aria-label="Search users"
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                className="user-search-clear"
+                                onClick={() => setSearchTerm("")}
+                                aria-label="Clear user search"
+                            >
+                                <FiX />
+                            </button>
+                        )}
+                    </label>
+
                     <button
                         className="user-refresh-button"
                         onClick={fetchUsers}
@@ -187,8 +231,10 @@ function Users() {
                     <div className="user-empty-state">Loading users...</div>
                 ) : users.length === 0 ? (
                     <div className="user-empty-state">No users found.</div>
+                ) : filteredUsers.length === 0 ? (
+                    <div className="user-empty-state">No users match "{searchTerm}".</div>
                 ) : (
-                    users.map((user) => (
+                    filteredUsers.map((user) => (
                         <div key={user.id} className="user-row">
                             <div className="user-identity">
                                 <span className="user-name">{user.name}</span>
