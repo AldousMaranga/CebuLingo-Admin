@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { Navigate } from "react-router-dom";
-import { auth } from "../firebase";
+import { auth, authPersistenceReady } from "../firebase";
+
+const ADMIN_SESSION_KEY = "cebulingo_admin_session_active";
 
 function Login({ isAuthenticated, authReady, authError }) {
     const [email, setEmail] = useState("");
@@ -25,7 +27,9 @@ function Login({ isAuthenticated, authReady, authError }) {
         setError("");
 
         try {
+            await authPersistenceReady;
             await signInWithEmailAndPassword(auth, email.trim(), password);
+            sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
         } catch (loginError) {
             if (
                 loginError.code === "auth/invalid-credential" ||

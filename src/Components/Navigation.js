@@ -14,6 +14,9 @@ import Settings from './Settings';
 import Login from "./Login";
 import { auth } from "../firebase";
 
+const ADMIN_SESSION_KEY = "cebulingo_admin_session_active";
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
 function AuthLoading() {
     return <div className="auth-loading">Checking admin access...</div>;
 }
@@ -48,6 +51,12 @@ function NavigationShell() {
                 return;
             }
 
+            if (sessionStorage.getItem(ADMIN_SESSION_KEY) !== "true") {
+                authErrorRef.current = "Your admin session expired. Please sign in again.";
+                await signOut(auth);
+                return;
+            }
+
             setAuthState({
                 status: "loading",
                 error: ""
@@ -76,8 +85,49 @@ function NavigationShell() {
         return () => unsubscribe();
     }, []);
 
+    useEffect(() => {
+        if (authState.status !== "authenticated") {
+            return undefined;
+        }
+
+        let idleTimer = null;
+
+        const signOutForInactivity = async () => {
+            authErrorRef.current = "You were signed out after 5 minutes of inactivity.";
+            sessionStorage.removeItem(ADMIN_SESSION_KEY);
+            await signOut(auth);
+        };
+
+        const resetIdleTimer = () => {
+            window.clearTimeout(idleTimer);
+            idleTimer = window.setTimeout(signOutForInactivity, IDLE_TIMEOUT_MS);
+        };
+
+        const activityEvents = [
+            "click",
+            "keydown",
+            "mousemove",
+            "scroll",
+            "touchstart"
+        ];
+
+        activityEvents.forEach((eventName) => {
+            window.addEventListener(eventName, resetIdleTimer, { passive: true });
+        });
+
+        resetIdleTimer();
+
+        return () => {
+            window.clearTimeout(idleTimer);
+            activityEvents.forEach((eventName) => {
+                window.removeEventListener(eventName, resetIdleTimer);
+            });
+        };
+    }, [authState.status]);
+
     const showNavigation = authState.status === "authenticated";
     const handleLogout = async () => {
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
         await signOut(auth);
     };
 
