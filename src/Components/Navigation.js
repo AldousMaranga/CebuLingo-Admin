@@ -132,7 +132,7 @@ function NavigationShell() {
     };
 
     return (
-        <div>
+        <div className="admin-shell">
             {showNavigation && (
                 <div className="nav-cont">
                     <div className="logo-cont" >
@@ -156,7 +156,8 @@ function NavigationShell() {
                 </div>
             )}
 
-                <Routes>
+                <div className="route-shell">
+                    <Routes>
                     <Route
                         path="/login"
                         element={
@@ -208,7 +209,8 @@ function NavigationShell() {
                         }
                     />
                     <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
+                    </Routes>
+                </div>
         </div>
     );
 }

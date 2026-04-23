@@ -11,7 +11,7 @@ import {
     deleteDoc,
     serverTimestamp
 } from "firebase/firestore";
-import { FiEdit2, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiEdit2, FiMoreVertical, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 
 function Lessons() {
     const [showModal, setShowModal] = useState(false);
@@ -105,7 +105,9 @@ function Lessons() {
                 lesson.category,
                 formatLabel(lesson.category),
                 lesson.pathway,
-                formatLabel(lesson.pathway)
+                formatLabel(lesson.pathway),
+                lesson.lessonType,
+                formatLabel(lesson.lessonType)
             ]
                 .filter(Boolean)
                 .join(" ")
@@ -457,6 +459,15 @@ function Lessons() {
                 <h1>Lesson Management</h1>
 
                 <div className="lesson-buttons-cont">
+                    <button
+                        className="lesson-add-button"
+                        onClick={() => setShowModal(true)}
+                        aria-label="Add lesson"
+                        title="Add lesson"
+                    >
+                        <FiPlus />
+                    </button>
+
                     <label className="lesson-search">
                         <FiSearch />
                         <input
@@ -477,13 +488,6 @@ function Lessons() {
                             </button>
                         )}
                     </label>
-
-                    <button
-                        className="lesson-add-button"
-                        onClick={() => setShowModal(true)}
-                    >
-                        + Create Lesson
-                    </button>
                 </div>
             </div>
 

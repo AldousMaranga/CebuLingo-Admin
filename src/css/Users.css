@@ -1,9 +1,12 @@
 .user-cont {
-    min-height: 100vh;
+    height: 100%;
     background-color: #0F172A;
     color: #ffffff;
     box-sizing: border-box;
     padding: 30px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .user-header {
@@ -56,6 +59,11 @@
     border-radius: 24px;
     padding: 24px 24px 8px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    min-height: 0;
+    flex: 0 1 auto;
+    max-height: calc(100% - 68px);
+    display: flex;
+    flex-direction: column;
 }
 
 .user-note,
@@ -102,6 +110,33 @@
 .user-row {
     padding: 20px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.user-list-cont>.user-row,
+.user-list-cont>.user-empty-state {
+    flex: 0 0 auto;
+}
+
+.user-list-cont {
+    overflow-y: auto;
+}
+
+.user-list-cont::-webkit-scrollbar {
+    width: 8px;
+}
+
+.user-list-cont::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.36);
+    border-radius: 999px;
+}
+
+.user-list-cont::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+}
+
+.user-list-cont::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.55);
 }
 
 .user-row:last-child {

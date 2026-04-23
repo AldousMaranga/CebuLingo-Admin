@@ -1,4 +1,19 @@
 
 .main-cont {
     background-color: #0F172A;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.admin-shell {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.route-shell {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
