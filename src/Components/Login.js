@@ -18,6 +18,10 @@ function Login({ isAuthenticated, authReady, authError }) {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
+        if (isSubmitting) {
+            return;
+        }
+
         if (!email.trim() || !password.trim()) {
             setError("Please enter both email and password.");
             return;
@@ -45,6 +49,15 @@ function Login({ isAuthenticated, authReady, authError }) {
         }
     };
 
+    const handleInputKeyDown = (event) => {
+        if (event.key !== "Enter" || isSubmitting) {
+            return;
+        }
+
+        event.preventDefault();
+        event.currentTarget.form?.requestSubmit();
+    };
+
     return (
         <div className="login-page">
             <div className="login-card">
@@ -67,6 +80,7 @@ function Login({ isAuthenticated, authReady, authError }) {
                             type="email"
                             value={email}
                             onChange={(event) => setEmail(event.target.value)}
+                            onKeyDown={handleInputKeyDown}
                             placeholder="admin@example.com"
                             autoComplete="email"
                         />
@@ -78,6 +92,7 @@ function Login({ isAuthenticated, authReady, authError }) {
                             type="password"
                             value={password}
                             onChange={(event) => setPassword(event.target.value)}
+                            onKeyDown={handleInputKeyDown}
                             placeholder="Enter your password"
                             autoComplete="current-password"
                         />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { db } from "../firebase";
 import {
     collection,
@@ -11,13 +11,15 @@ import {
     deleteDoc,
     serverTimestamp
 } from "firebase/firestore";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiMoreVertical, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 
 function Lessons() {
     const [showModal, setShowModal] = useState(false);
     const [lessonTitle, setLessonTitle] = useState("");
     const [lessons, setLessons] = useState([]);
     const [editingId, setEditingId] = useState(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [openActionId, setOpenActionId] = useState(null);
 
     const [difficulty, setDifficulty] = useState("");
     const [category, setCategory] = useState("");
@@ -87,6 +89,31 @@ function Lessons() {
         setFileError("");
         setEditingId(null);
     };
+
+    const filteredLessons = useMemo(() => {
+        const normalizedSearch = searchTerm.trim().toLowerCase();
+
+        if (!normalizedSearch) {
+            return lessons;
+        }
+
+        return lessons.filter((lesson) => {
+            const searchableText = [
+                lesson.title,
+                lesson.difficulty,
+                formatLabel(lesson.difficulty),
+                lesson.category,
+                formatLabel(lesson.category),
+                lesson.pathway,
+                formatLabel(lesson.pathway)
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+
+            return searchableText.includes(normalizedSearch);
+        });
+    }, [lessons, searchTerm]);
 
     useEffect(() => {
         setPathway("");
@@ -403,6 +430,7 @@ function Lessons() {
         if (!confirmDelete) return;
 
         try {
+            setOpenActionId(null);
             await deleteDoc(doc(db, "lessons", id));
             fetchLessons();
         } catch (error) {
@@ -419,6 +447,7 @@ function Lessons() {
         setCsvFile(null);
         setFileError("");
         setEditingId(lesson.id);
+        setOpenActionId(null);
         setShowModal(true);
     };
 
@@ -428,6 +457,27 @@ function Lessons() {
                 <h1>Lesson Management</h1>
 
                 <div className="lesson-buttons-cont">
+                    <label className="lesson-search">
+                        <FiSearch />
+                        <input
+                            type="search"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            placeholder="Search title, difficulty, category, pathway..."
+                            aria-label="Search lessons"
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                className="lesson-search-clear"
+                                onClick={() => setSearchTerm("")}
+                                aria-label="Clear lesson search"
+                            >
+                                <FiX />
+                            </button>
+                        )}
+                    </label>
+
                     <button
                         className="lesson-add-button"
                         onClick={() => setShowModal(true)}
@@ -450,8 +500,10 @@ function Lessons() {
                 <div className="lesson-list-cont">
                     {lessons.length === 0 ? (
                         <p className="empty-state">No lessons found.</p>
+                    ) : filteredLessons.length === 0 ? (
+                        <p className="empty-state">No lessons match "{searchTerm}".</p>
                     ) : (
-                        lessons.map((lesson) => (
+                        filteredLessons.map((lesson) => (
                             <div key={lesson.id} className="lesson-row">
                                 <span className="lesson-title">{lesson.title}</span>
                                 <span>{formatLabel(lesson.difficulty)}</span>
@@ -461,18 +513,36 @@ function Lessons() {
 
                                 <div className="lesson-actions">
                                     <button
-                                        className="icon-button edit"
-                                        onClick={() => handleEdit(lesson)}
+                                        type="button"
+                                        className="lesson-action-trigger"
+                                        onClick={() => setOpenActionId((currentId) => currentId === lesson.id ? null : lesson.id)}
+                                        aria-label={`Open actions for ${lesson.title}`}
+                                        aria-expanded={openActionId === lesson.id}
                                     >
-                                        <FiEdit2 />
+                                        <FiMoreVertical />
                                     </button>
 
-                                    <button
-                                        className="icon-button delete"
-                                        onClick={() => handleDelete(lesson.id)}
-                                    >
-                                        <FiTrash2 />
-                                    </button>
+                                    {openActionId === lesson.id && (
+                                        <div className="lesson-action-menu">
+                                            <button
+                                                type="button"
+                                                className="lesson-menu-item edit"
+                                                onClick={() => handleEdit(lesson)}
+                                            >
+                                                <FiEdit2 />
+                                                <span>Edit lesson</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="lesson-menu-item delete"
+                                                onClick={() => handleDelete(lesson.id)}
+                                            >
+                                                <FiTrash2 />
+                                                <span>Delete lesson</span>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))
