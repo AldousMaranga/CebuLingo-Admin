@@ -9,7 +9,8 @@ import {
     doc,
     updateDoc,
     deleteDoc,
-    serverTimestamp
+    serverTimestamp,
+    deleteField
 } from "firebase/firestore";
 import { FiEdit2, FiMoreVertical, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 
@@ -188,28 +189,125 @@ function Lessons() {
         const typeIndex = getIndex("type");
         const choicesIndex = getIndex("choices");
         const imageUrlIndex = getIndex("imageurl", "image_url", "image", "picture", "photo");
+        const audioUrlIndex = getIndex(
+            "audiourl",
+            "audio_url",
+            "audio",
+            "audiofile",
+            "audio_file",
+            "audiofileurl",
+            "audio_file_url",
+            "recordedaudiourl",
+            "recorded_audio_url",
+            "prerecordedaudiourl",
+            "pre_recorded_audio_url",
+            "nativeaudiourl",
+            "native_audio_url",
+            "recordingurl",
+            "recording_url",
+            "audiopath",
+            "audio_path"
+        );
 
         if (questionIndex === -1 || answerIndex === -1) {
             throw new Error("CSV must contain 'question' and 'answer' columns.");
         }
 
-        return lines.slice(1).map((line) => {
-            const cols = parseCSVLine(line);
+        return lines
+            .slice(1)
+            .map((line) => {
+                const cols = parseCSVLine(line);
 
-            return {
-                question: cols[questionIndex] || "",
-                prompt: promptIndex !== -1 ? cols[promptIndex] || "" : "",
-                targetText: targetTextIndex !== -1 ? cols[targetTextIndex] || "" : "",
-                answer: cols[answerIndex] || "",
-                acceptedAnswers: acceptedAnswersIndex !== -1 ? cols[acceptedAnswersIndex] || "" : "",
-                recognitionLang: recognitionLangIndex !== -1 ? cols[recognitionLangIndex] || "" : "",
-                type: typeIndex !== -1 ? cols[typeIndex] || "" : "",
-                choices: choicesIndex !== -1 ? cols[choicesIndex] || "" : "",
-                imageUrl: imageUrlIndex !== -1 ? cols[imageUrlIndex] || "" : ""
-            };
-        });
+                return {
+                    question: cols[questionIndex] || "",
+                    prompt: promptIndex !== -1 ? cols[promptIndex] || "" : "",
+                    targetText: targetTextIndex !== -1 ? cols[targetTextIndex] || "" : "",
+                    answer: cols[answerIndex] || "",
+                    acceptedAnswers: acceptedAnswersIndex !== -1 ? cols[acceptedAnswersIndex] || "" : "",
+                    recognitionLang: recognitionLangIndex !== -1 ? cols[recognitionLangIndex] || "" : "",
+                    type: typeIndex !== -1 ? cols[typeIndex] || "" : "",
+                    choices: choicesIndex !== -1 ? cols[choicesIndex] || "" : "",
+                    imageUrl: imageUrlIndex !== -1 ? cols[imageUrlIndex] || "" : "",
+                    audioUrl: audioUrlIndex !== -1 ? cols[audioUrlIndex] || "" : undefined
+                };
+            })
+            .filter((row) =>
+                row.question ||
+                row.prompt ||
+                row.targetText ||
+                row.answer ||
+                row.acceptedAnswers ||
+                row.recognitionLang ||
+                row.type ||
+                row.choices ||
+                row.imageUrl ||
+                row.audioUrl
+            );
     };
 
+    const buildQuestionData = (
+        row,
+        selectedDifficulty,
+        selectedLessonType,
+        options = {}
+    ) => {
+        const normalizedType = (row.type || selectedLessonType || "").trim();
+        const questionData = {
+            question: row.question || "",
+            prompt: row.prompt || row.question || "",
+            targetText: row.targetText || row.answer || "",
+            answer: row.answer || "",
+            acceptedAnswers: row.acceptedAnswers || "",
+            recognitionLang: row.recognitionLang || "",
+            difficulty: selectedDifficulty,
+            lessonType: normalizedType || selectedLessonType,
+            type: normalizedType || selectedLessonType
+        };
+
+        if (row.choices) {
+            questionData.choices = row.choices
+                .split(";")
+                .map((choice) => choice.trim())
+                .filter(Boolean);
+        }
+
+        if (row.imageUrl) {
+            try {
+                new URL(row.imageUrl);
+                questionData.imageUrl = row.imageUrl;
+            } catch (error) {
+                throw new Error(`Invalid image URL in CSV: ${row.imageUrl}`);
+            }
+        }
+
+        if (typeof row.audioUrl === "string") {
+            if (row.audioUrl) {
+                questionData.audioUrl = row.audioUrl;
+            } else if (options.removeBlankAudioUrl) {
+                questionData.audioUrl = deleteField();
+            }
+        }
+
+        return questionData;
+    };
+
+    const normalizeQuestionMatchValue = (value) =>
+        String(value || "").trim().toLowerCase();
+
+    const getQuestionMatchKeys = (item) => {
+        const question = normalizeQuestionMatchValue(item.question);
+        const prompt = normalizeQuestionMatchValue(item.prompt);
+        const answer = normalizeQuestionMatchValue(item.answer);
+        const targetText = normalizeQuestionMatchValue(item.targetText);
+        const keys = [
+            question && answer ? `${question}|${answer}` : "",
+            question && targetText ? `${question}|${targetText}` : "",
+            prompt && answer ? `${prompt}|${answer}` : "",
+            prompt && targetText ? `${prompt}|${targetText}` : ""
+        ];
+
+        return [...new Set(keys.filter(Boolean))];
+    };
 
     const saveQuestionsToLesson = async (
         lessonId,
@@ -218,40 +316,68 @@ function Lessons() {
         selectedLessonType
     ) => {
         for (const row of rows) {
-            const normalizedType = (row.type || selectedLessonType || "").trim();
-
-            const questionData = {
-                question: row.question || "",
-                prompt: row.prompt || row.question || "",
-                targetText: row.targetText || row.answer || "",
-                answer: row.answer || "",
-                acceptedAnswers: row.acceptedAnswers || "",
-                recognitionLang: row.recognitionLang || "",
-                difficulty: selectedDifficulty,
-                lessonType: normalizedType || selectedLessonType,
-                type: normalizedType || selectedLessonType
-            };
-
-            if (row.choices) {
-                questionData.choices = row.choices
-                    .split(";")
-                    .map((choice) => choice.trim())
-                    .filter(Boolean);
-            }
-
-            if (row.imageUrl) {
-                try {
-                    new URL(row.imageUrl);
-                    questionData.imageUrl = row.imageUrl;
-                } catch (error) {
-                    throw new Error(`Invalid image URL in CSV: ${row.imageUrl}`);
-                }
-            }
+            const questionData = buildQuestionData(
+                row,
+                selectedDifficulty,
+                selectedLessonType
+            );
 
             await addDoc(
                 collection(db, "lessons", lessonId, "questions"),
                 questionData
             );
+        }
+    };
+
+    const syncQuestionsToLesson = async (
+        lessonId,
+        rows,
+        selectedDifficulty,
+        selectedLessonType
+    ) => {
+        const questionsRef = collection(db, "lessons", lessonId, "questions");
+        const questionsSnapshot = await getDocs(questionsRef);
+        const existingQuestionsByKey = new Map();
+
+        questionsSnapshot.docs.forEach((questionDoc) => {
+            const existingQuestion = {
+                id: questionDoc.id,
+                ...questionDoc.data()
+            };
+
+            getQuestionMatchKeys(existingQuestion).forEach((key) => {
+                if (!existingQuestionsByKey.has(key)) {
+                    existingQuestionsByKey.set(key, existingQuestion);
+                }
+            });
+        });
+
+        for (const row of rows) {
+            const matchingQuestion = getQuestionMatchKeys(row)
+                .map((key) => existingQuestionsByKey.get(key))
+                .find(Boolean);
+
+            if (matchingQuestion) {
+                const questionData = buildQuestionData(
+                    row,
+                    selectedDifficulty,
+                    selectedLessonType,
+                    { removeBlankAudioUrl: true }
+                );
+
+                await updateDoc(
+                    doc(db, "lessons", lessonId, "questions", matchingQuestion.id),
+                    questionData
+                );
+            } else {
+                const questionData = buildQuestionData(
+                    row,
+                    selectedDifficulty,
+                    selectedLessonType
+                );
+
+                await addDoc(questionsRef, questionData);
+            }
         }
     };
 
@@ -389,7 +515,18 @@ function Lessons() {
                     lessonType
                 });
 
-                alert("Lesson updated successfully!");
+                if (csvFile) {
+                    const parsedRows = await parseCSVFile(csvFile);
+
+                    await syncQuestionsToLesson(
+                        editingId,
+                        parsedRows,
+                        difficulty,
+                        lessonType
+                    );
+                }
+
+                alert(csvFile ? "Lesson and questions updated successfully!" : "Lesson updated successfully!");
             } else {
                 const lessonRef = await addDoc(collection(db, "lessons"), {
                     title: lessonTitle,
@@ -676,6 +813,15 @@ function Lessons() {
                                     <code> image_url </code>
                                     column to the CSV with the direct image link for
                                     each question.
+                                </div>
+                            )}
+
+                            {["spelling", "pronunciation", "phrase_typing", "phrase_speaking"].includes(lessonType) && (
+                                <div className="image-upload-hint">
+                                    Intermediate and hard lessons can include an optional
+                                    <code> audioUrl </code>
+                                    column with the pre-recorded native audio for each row.
+                                    Leave it blank to use Google text-to-speech.
                                 </div>
                             )}
 
